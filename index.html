@@ -10304,5 +10304,39 @@ body.phone #death h1{font-size:38px}body.phone #death p{font-size:14px}
 @media (max-height:500px){#cine_gate b{font-size:36px;letter-spacing:8px;margin-bottom:8px}#cine_gate span{font-size:13px}#cine_gate a{margin-top:16px}
   #cine_skip{right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px))}}
 `; document.head.appendChild(st); })();
+
+// ---------- v3.28.2 프런트엔드 자동 맞춤 (어떤 화면 크기·비율이든 내용이 넘치면 스스로 줄임) ----------
+// 기준: #uiroot 의 실제 UI 높이(vh). 타이틀·세력 선택은 겹침/넘침이 없어질 때까지 zoom 을 1 → 0.55 로 단계적으로 낮추고, 팝업은 높이에 맞춘다.
+(() => {
+  const T = $('title'), root = $('uiroot'); if (!T || !root) return;
+  const GROUPS = { ft_title: ['.t2_season', '.t2_logo', '.t2_menu', '.t2_news', '.t2_dos', '.t2_fac'], ft_fac: ['.ff_top', '.ff_info', '.ff_world', '.ff_arrow', '.ff_tabs', '.ff_nav'] };
+  let timer = 0;
+  function fitGroup(el, sels, check) {
+    const nodes = []; for (const sel of sels) el.querySelectorAll(':scope > ' + sel).forEach(n => nodes.push(n)); if (!nodes.length) return;
+    const s = UI.S || 1, top0 = root.getBoundingClientRect().top, vh = root.clientHeight;
+    const rb = n => { const r = n.getBoundingClientRect(); return { t: (r.top - top0) / s, b: (r.bottom - top0) / s }; };
+    let k = 1;
+    for (; k >= 0.549; k -= 0.05) { const z = k < 0.999 ? String(Math.round(k * 100) / 100) : ''; for (const n of nodes) n.style.zoom = z; if (check(rb, vh)) break; }
+  }
+  function run() {
+    timer = 0; if (typeof G !== 'undefined' && G.started) return;
+    const t = $('ft_title'); if (t && t.classList.contains('on')) {
+      const tick = t.querySelector('.t2_tick'), q = s => t.querySelector(':scope > ' + s);
+      fitGroup(t, GROUPS.ft_title, (rb, vh) => { const lim = Math.min(vh, tick ? rb(tick).t : vh) - 4, ok = (a, b) => !a || rb(a).b <= (b ? Math.min(rb(b).t, lim) : lim) - 3;
+        return ok(q('.t2_menu'), q('.t2_fac')) && ok(q('.t2_news'), q('.t2_dos')); }); }
+    const f = $('ft_fac'); if (f && f.classList.contains('on')) {
+      const q = s => f.querySelector(':scope > ' + s);
+      fitGroup(f, GROUPS.ft_fac, (rb, vh) => { const tabs = q('.ff_tabs'), lim = tabs ? rb(tabs).t : vh, ok = a => !a || rb(a).b <= lim - 4; return ok(q('.ff_info')) && ok(q('.ff_world')); }); }
+    // 팝업(콜사인·확인): 화면 높이를 넘으면 맞춤
+    const s = UI.S || 1, vh = root.clientHeight;
+    T.querySelectorAll('.fscr.on .fbox').forEach(b => { b.style.zoom = ''; const h = b.getBoundingClientRect().height / s, lim = vh - 16; if (h > lim) b.style.zoom = String(Math.round(Math.max(0.55, lim / h) * 100) / 100); });
+  }
+  const sched = () => { if (!timer) timer = setTimeout(run, 60); };
+  new MutationObserver(sched).observe(T, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'], characterData: true });
+  for (const ev of ['resize', 'orientationchange']) addEventListener(ev, () => { clearTimeout(timer); timer = setTimeout(run, 250); });
+  if (window.visualViewport) visualViewport.addEventListener('resize', () => { clearTimeout(timer); timer = setTimeout(run, 250); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(sched);
+  setTimeout(sched, 400); setTimeout(sched, 1500);   // 첫 배치·레이아웃 안정화 후 재확인
+})();
 </script>
 </body></html>
