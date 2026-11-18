@@ -4,7 +4,8 @@
 <style>
 *{box-sizing:border-box}
 html,body{overscroll-behavior:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;margin:0;height:100%;overflow:hidden;background:#05070d;color:#dfe8ff;font-family:'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif;user-select:none}
-#gl,#ov{position:fixed;left:0;top:0;width:100vw;height:100vh;display:block}
+#gl,#ov{position:fixed;left:0;top:0;width:100%;height:100%;display:block}
+@supports(height:100dvh){html,body{height:100dvh}#gl,#ov{height:100dvh}}
 #gl{cursor:none}
 #ov{pointer-events:none}
 /* v1.9: 모든 UI는 기준 1600×900 좌표로 배치한 뒤 #uiroot 전체를 화면 크기에 맞춰 확대·축소 */
@@ -3180,6 +3181,7 @@ $('tacmap').addEventListener('mousemove', e => { UI.tacHover = nearestSectorAt($
 $('tacmap').addEventListener('mouseleave', () => { UI.tacHover = null; });
 $('tacmap').addEventListener('click', e => { const id = nearestSectorAt($('tacmap'), e); if (id) UI.tacPick(id); });
 addEventListener('resize', () => UI.layout());
+if (window.visualViewport) visualViewport.addEventListener('resize', () => { UI._lw = -1; UI.layout(); });   // 모바일 주소창 출입 시 즉시 재배치
 
 // ===================== 인벤토리 (디아블로 격자 + 아이온2 편의) - v1.9: 모든 파츠 2×2 균일 칸 =====================
 const INV = { CELL: 40, CARGO: [6, 6], STORE_W: 10, STORE_H: 8 };
@@ -7919,7 +7921,7 @@ const Phone = {
   // ---------- 배율 ----------
   layout() { const I = Phone.ins, W = innerWidth - I.l - I.r, H = innerHeight - I.t - I.b, s = clamp(Math.min(H / Phone.PH_H, W / Phone.PH_W), 0.5, 1.5); UI.S = s;
     const r = $('uiroot'); r.style.transform = `scale(${s})`; r.style.left = I.l + 'px'; r.style.top = I.t + 'px'; r.style.width = W / s + 'px'; r.style.height = H / s + 'px';
-    const rs = document.documentElement.style; rs.setProperty('--ghx', ((innerWidth - 0.64 * Math.min(innerWidth, innerHeight)) / 2 / s) + 'px'); rs.setProperty('--sat', I.t + 'px'); rs.setProperty('--sar', I.r + 'px'); rs.setProperty('--sab', I.b + 'px'); rs.setProperty('--sal', I.l + 'px'); },
+    const rs = document.documentElement.style; rs.setProperty('--ghx', ((innerWidth - 0.64 * Math.min(innerWidth, innerHeight)) / 2 / s) + 'px'); rs.setProperty('--sat', I.t + 'px'); rs.setProperty('--sats', (I.t / s) + 'px'); rs.setProperty('--sars', (I.r / s) + 'px'); rs.setProperty('--sabs', (I.b / s) + 'px'); rs.setProperty('--sals', (I.l / s) + 'px'); rs.setProperty('--sar', I.r + 'px'); rs.setProperty('--sab', I.b + 'px'); rs.setProperty('--sal', I.l + 'px'); },
   // ---------- 상태 ----------
   mode() { if (!G.started) return Front.active && Front.active() ? 'title' : 'none'; if (Lab.on) return Story.on ? (Story.cine ? 'cine' : Lab.view === 'fight' && Lab.fight ? 'labfight' : 'story') : (Lab.view === 'fight' && Lab.fight ? 'labfight' : 'labmenu'); return UI.blocking() || (typeof GM !== 'undefined' && GM.open) || ($('pSheet') && $('pSheet').style.display === 'flex') ? 'panel' : 'play'; },
   vib(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} },
@@ -10230,5 +10232,77 @@ const CINE2 = { cps: 32, typing: null,
   const oPCh = Story.playChapter; Story.playChapter = function (c) { const r = oPCh.apply(this, arguments); try { const CH = CHAP[c]; if (CH) { loc.innerHTML = `<b>${CH.loc || ''}</b><span>제${c}장 · ${CH.n} · ${CH.en || ''}</span>`; setTimeout(() => loc.classList.add('on'), 600); setTimeout(() => loc.classList.remove('on'), 5200); } } catch (e) {} return r; };
 })();
 
+
+// ---------- v3.28.1 폰 프런트엔드 레이아웃 보정 ----------
+(() => { if (typeof Phone === 'undefined' || !Phone.on) return; const st = document.createElement('style'); st.textContent = `
+/* ===== v3.28.1 폰: 프런트엔드 화면을 가상 화면 1000×540에 맞춤 ===== */
+body.phone .t2_bg,body.phone .t2_scan{inset:calc(-2px - var(--sats,0px)) calc(-2px - var(--sars,0px)) calc(-2px - var(--sabs,0px)) calc(-2px - var(--sals,0px))}
+body.phone .t2_season{left:40px;top:12px;font-size:10px;letter-spacing:3px}
+body.phone .t2_season span{margin-right:8px;padding:1px 6px}
+body.phone .t2_logo{left:36px;top:34px}
+body.phone .t2_l1{font-size:52px;letter-spacing:8px}
+body.phone .t2_l2{font-size:66px;letter-spacing:3px}
+body.phone .t2_bar{margin-top:8px;width:300px;height:4px}
+body.phone .t2_ver{margin-top:6px;font-size:10px;letter-spacing:3px}
+body.phone .t2_menu{left:36px;top:176px;width:340px;gap:6px}
+body.phone .t2_main{padding:9px 20px!important}
+body.phone .t2_main b{font-size:26px;letter-spacing:6px}
+body.phone .t2_main:disabled b{font-size:17px;letter-spacing:2px}
+body.phone .t2_main span{font-size:11px;margin-top:2px}
+body.phone .t2_main em{right:34px;font-size:9px;padding:1px 5px}
+body.phone .t2_btn{padding:10px 20px!important}
+body.phone .t2_btn b{font-size:16px;letter-spacing:3px}
+body.phone .t2_btn span{font-size:10px}
+body.phone .t2_row{gap:5px;margin-top:2px}
+body.phone .t2_mini{padding:0 12px!important;min-height:36px;font-size:12px}
+body.phone .t2_news{right:36px;top:34px;width:290px}
+body.phone .t2_nh{font-size:10px;letter-spacing:3px;margin-bottom:5px}
+body.phone .t2_nc{margin-bottom:5px;padding:6px 10px}
+body.phone .t2_nc b{font-size:13px}body.phone .t2_nc span{font-size:11px;line-height:1.35}
+body.phone .t2_dos{right:36px;bottom:42px;width:290px;padding:8px 12px}
+body.phone .t2_dh b{font-size:15px}body.phone .t2_dh span{font-size:11px}body.phone .t2_lv b{font-size:22px}
+body.phone .t2_tiers{margin:7px 0 6px}body.phone .t2_tiers i{font-size:11px;padding:3px 0}
+body.phone .t2_ds{font-size:10px;gap:4px 10px}body.phone .t2_ds b{font-size:12px}
+body.phone .t2_fac{left:40px;bottom:32px;gap:12px;font-size:11px}
+body.phone .t2_tick{left:calc(-2px - var(--sals,0px));right:calc(-2px - var(--sars,0px));bottom:calc(-1 * var(--sabs,0px));height:calc(24px + var(--sabs,0px))}
+body.phone .t2_tt{gap:50px;padding-top:5px;font-size:11px}
+body.phone .t2_press{margin:0 0 140px 40px;font-size:14px;letter-spacing:4px}
+body.phone #title.t2sp .t2_logo{transform:translateY(60px)}
+body.phone .ft_warn{left:36px;bottom:34px;max-width:520px;font-size:11px;padding:7px 10px}
+/* 세력 선택 */
+body.phone .ff_top{top:12px;font-size:11px;letter-spacing:8px}
+body.phone .ff_info{left:40px;top:36px;width:340px}
+body.phone .ff_en{font-size:10px;letter-spacing:4px}
+body.phone .ff_info h2{font-size:42px;margin:3px 0 6px}
+body.phone .ff_hook{font-size:13px;line-height:1.35}
+body.phone .ff_stats{margin-top:12px;gap:6px}
+body.phone .fs{font-size:11px;letter-spacing:2px;grid-template-columns:56px 1fr}
+body.phone .fbar{height:6px}
+body.phone .ff_chips{margin-top:10px;gap:4px}body.phone .ff_chips span{font-size:10px;padding:2px 7px}
+body.phone .ff_story_btn{margin-top:8px!important;font-size:12px;padding:6px 0!important}
+body.phone .ff_story{max-height:110px;font-size:11px;padding:6px 8px}
+body.phone .ff_world{right:40px;top:36px}body.phone .ff_world b{font-size:16px}body.phone .ff_world span{font-size:11px}
+body.phone .ff_arrow{top:220px;font-size:40px!important;padding:10px 16px!important}body.phone .ff_arrow.l{left:390px}body.phone .ff_arrow.r{right:6px}
+body.phone .ff_tabs{bottom:12px;gap:8px}
+body.phone .ff_tab{width:120px;padding:6px!important}
+body.phone .ff_tab i{width:20px;height:20px;margin-bottom:3px}body.phone .ff_tab b{font-size:13px}body.phone .ff_tab span{font-size:9px}
+body.phone .ff_nav,body.phone .ff_nav2{font-size:14px!important;padding:10px 18px!important;letter-spacing:2px}
+body.phone .ff_nav{bottom:18px}body.phone .ff_nav.back{left:30px}body.phone .ff_nav.go{right:30px}
+body.phone .ff_hint{display:none}
+/* 콜사인·확인 팝업: 키보드가 올라와도 입력칸이 보이도록 위쪽에 */
+body.phone .fbox{top:10px;transform:translateX(-50%);width:min(460px,92%);padding:14px 20px 12px}
+body.phone .fb_t{font-size:13px;letter-spacing:5px}
+body.phone .fb_msg{margin:8px 0 4px;font-size:13px;line-height:1.5}
+body.phone #ft_name{margin:10px 0 4px;padding:8px;font-size:22px}
+body.phone .fb_err{height:16px;font-size:12px}
+body.phone .fb_row{margin-top:8px}
+body.phone .fl_msg{top:220px}body.phone .fl_msg b{font-size:24px;letter-spacing:5px}body.phone .fl_msg span{font-size:13px}
+/* 배너·사망 화면 */
+body.phone #banner{width:90%}body.phone #banner h1{font-size:30px}body.phone #banner p{font-size:14px}
+body.phone #death h1{font-size:38px}body.phone #death p{font-size:14px}
+/* 시네마 진입/건너뛰기 (스케일 밖 요소) */
+@media (max-height:500px){#cine_gate b{font-size:36px;letter-spacing:8px;margin-bottom:8px}#cine_gate span{font-size:13px}#cine_gate a{margin-top:16px}
+  #cine_skip{right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px))}}
+`; document.head.appendChild(st); })();
 </script>
 </body></html>
